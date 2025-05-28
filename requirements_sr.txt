@@ -1,0 +1,7 @@
+torch
+torchvision
+timm
+tensorboard
+spikingjelly
+thop
+cupy-cuda12x==12.2.0
