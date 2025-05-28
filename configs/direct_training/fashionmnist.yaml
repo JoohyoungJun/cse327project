@@ -1,0 +1,11 @@
+epochs: 10
+batch_size: 64
+lr: 0.001
+output_dir: ./outputs/fmnist
+data_path: ./data
+
+DATA:
+  DATASET: FashionMNIST
+  IMG_SIZE: 32
+  NUM_CLASSES: 10
+  DATA_PATH: ./data

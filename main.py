@@ -393,6 +393,35 @@ def load_data(
             crop_pct=0.95,
             pin_memory=True,
         )
+    # FashionMNIST is grayscale, I convert it to 3-ch and resize to 32x32
+    elif dataset_type == 'FashionMNIST':
+        from torchvision.datasets import FashionMNIST
+
+        transform = transforms.Compose([
+            transforms.Resize((32, 32)), # Resize to match CIFAR-10 size
+            transforms.Grayscale(num_output_channels=3), # Convert 1 ch to 3 ch
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)) # Normalize to standard range
+        ])
+
+        dataset_train = FashionMNIST(root=dataset_dir, train=True, download=True, transform=transform)
+        dataset_test = FashionMNIST(root=dataset_dir, train=False, download=True, transform=transform)
+
+        # Use distributed or sequential sampler depending on mode
+        if distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+            test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test)
+        else:
+            train_sampler = torch.utils.data.RandomSampler(dataset_train)
+            test_sampler = torch.utils.data.SequentialSampler(dataset_test)
+
+        data_loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size,
+                                                        sampler=train_sampler, num_workers=workers,
+                                                        pin_memory=True, drop_last=True)
+        data_loader_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size,
+                                                        sampler=test_sampler, num_workers=workers,
+                                                        pin_memory=True, drop_last=False)    
+    
     else:
         raise ValueError(dataset_type)
 
@@ -584,6 +613,9 @@ def main():
 
     args = parse_args()
 
+    if hasattr(args, 'DATA') and 'DATASET' in args.DATA:
+        args.dataset = args.DATA['DATASET']
+
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -622,6 +654,11 @@ def main():
     elif dataset_type == 'ImageNet100':
         num_classes = 100
         input_size = (3, 224, 224)
+    # FashionMNIST has 10 classes and 1-channel 28x28 images
+    # Preprocessed it to 3ch 32x32 images, so input_size is adjusted accordingly
+    elif dataset_type == 'FashionMNIST':
+        num_classes = 10
+        input_size = (3, 32, 32)
     else:
         raise ValueError(dataset_type)
     if len(args.input_size) != 0:
@@ -739,8 +776,15 @@ def main():
     if is_main_process():
         tb_writer = SummaryWriter(os.path.join(args.output_dir, 'tensorboard'),
                                   purge_step=start_epoch)
+    # Lists to store metrics for plotting 
+    train_loss_list = []
+    train_acc1_list = []
+    test_acc1_list = []
 
     logger.info("[Train]")
+
+    start_time = time.time()
+
     for epoch in range(start_epoch, args.epochs):
         if distributed and hasattr(data_loader_train.sampler, 'set_epoch'):
             data_loader_train.sampler.set_epoch(epoch)
@@ -760,6 +804,10 @@ def main():
         with Timer(' Test', logger):
             test_loss, test_acc1, test_acc5 = evaluate(model, criterion_eval, data_loader_test,
                                                        args.print_freq, logger, one_hot)
+        # Record metrics for plotting after each epoch
+        train_loss_list.append(train_loss)
+        train_acc1_list.append(train_acc1)
+        test_acc1_list.append(test_acc1)
 
         if is_main_process() and tb_writer is not None:
             tb_record(tb_writer, train_loss, train_acc1, train_acc5, test_loss, test_acc1,
@@ -786,6 +834,28 @@ def main():
 
     logger.info('Training completed.')
 
+    # Plot and save training loss and accuracy over epochs
+    if is_main_process():
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 5))
+        plt.plot(train_loss_list, label="Train Loss")
+        plt.plot(train_acc1_list, label="Train Acc@1")
+        plt.plot(test_acc1_list, label="Test Acc@1")
+        plt.title("Training Performance")
+        plt.xlabel("Epoch")
+        plt.ylabel("Metric")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plot_path = os.path.join(args.output_dir, "fmnist_training_plot.png")
+        plt.savefig(plot_path)
+        plt.close()
+        logger.info(f"Saved training plot to {plot_path}")
+
+    # Print total training time
+    elapsed = time.time() - start_time
+    logger.info(f"{args.model} (T={args.T}) done in {elapsed:.1f}s")
+
     ##################################################
     #                   test
     ##################################################
@@ -802,6 +872,8 @@ def main():
         num_classes=num_classes,
         img_size=input_size[-1],
     )
+    # Move the model to GPU. W/o this, the model stays on cpu. 
+    model = model.cuda()
 
     try:
         checkpoint = torch.load(os.path.join(args.output_dir, 'checkpoint_max_acc1.pth'),
