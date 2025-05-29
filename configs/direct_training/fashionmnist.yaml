@@ -6,6 +6,6 @@ data_path: ./data
 dataset: FashionMNIST
 DATA:
   DATASET: FashionMNIST
-  IMG_SIZE: 96
+  IMG_SIZE: 32
   NUM_CLASSES: 10
   DATA_PATH: ./data
