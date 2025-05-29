@@ -398,7 +398,7 @@ def load_data(
         from torchvision.datasets import FashionMNIST
 
         transform = transforms.Compose([
-            transforms.Resize((32, 32)), # Resize to match CIFAR-10 size
+            transforms.Resize((96, 96)), # Resize to match CIFAR-10 size
             transforms.Grayscale(num_output_channels=3), # Convert 1 ch to 3 ch
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)) # Normalize to standard range
