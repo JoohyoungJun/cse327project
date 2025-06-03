@@ -710,16 +710,20 @@ def main():
         scaler = None
 
     # lr scheduler
+    # optionally disable the scheduler for fixed learning rate experiments
 
-    lr_scheduler, _ = create_scheduler_v2(
-        optimizer,
-        sched='cosine',
-        num_epochs=args.epochs,
-        cooldown_epochs=10,
-        min_lr=1e-5,
-        warmup_lr=1e-5,
-        warmup_epochs=3,
-    )
+    lr_scheduler = None  
+
+    if not hasattr(args, "use_scheduler") or args.use_scheduler: 
+        lr_scheduler, _ = create_scheduler_v2(
+            optimizer,
+            sched='cosine',
+            num_epochs=args.epochs,
+            cooldown_epochs=10,
+            min_lr=1e-5,
+            warmup_lr=1e-5,
+            warmup_epochs=3,
+        )
 
     # Sync BN
     if args.sync_bn:

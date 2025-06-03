@@ -1,9 +1,11 @@
 epochs: 10
 batch_size: 64
-lr: 0.001
+lr: 0.0001
+use_scheduler: false
 output_dir: ./outputs/fmnist
 data_path: ./data
 dataset: FashionMNIST
+
 DATA:
   DATASET: FashionMNIST
   IMG_SIZE: 32
