@@ -31,7 +31,7 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 # Load pretrained models
 model_dict = {
-    'AlexNet': lambda: models.alexnet(weights=models.AlexNet_Weights.DEFAULT),
+    #'AlexNet': lambda: models.alexnet(weights=models.AlexNet_Weights.DEFAULT),
     'VGG11': lambda: models.vgg11(weights=models.VGG11_Weights.DEFAULT),
     'GoogLeNet': lambda: models.googlenet(weights=models.GoogLeNet_Weights.DEFAULT, aux_logits=True, transform_input=False),
     'ResNet18': lambda: models.resnet18(weights=models.ResNet18_Weights.DEFAULT),
