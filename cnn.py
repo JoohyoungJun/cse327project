@@ -9,13 +9,18 @@ import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Transform FashionMNIST to 3-channel RGB and resize to 224x224
+# Transform FashionMNIST to 3-channel RGB and resize to 32x32
 transform = transforms.Compose([
-    transforms.Grayscale(3),  # Convert to 3-channel RGB
-    transforms.Resize((224, 224)),  # Resize to 224x224
+    transforms.Resize((32, 32)),  # Resize to 32x32
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize each channel
 ])
+
+# Use FashionMNIST w/o preprocessing
+#transform = transforms.Compose([
+#    transforms.ToTensor(),
+#    transforms.Normalize((0.5,), (0.5,))
+#])
 
 # Load FashionMNIST dataset
 train_dataset = datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
@@ -25,12 +30,12 @@ test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 # Load pretrained models
 model_dict = {
-    'AlexNet': lambda: models.alexnet(weights=models.AlexNet_Weights.DEFAULT),
+    #'AlexNet': lambda: models.alexnet(weights=models.AlexNet_Weights.DEFAULT),
     'VGG11': lambda: models.vgg11(weights=models.VGG11_Weights.DEFAULT),
-    'GoogLeNet': lambda: models.googlenet(weights=models.GoogLeNet_Weights.DEFAULT, aux_logits=True),
+    'GoogLeNet': lambda: models.googlenet(weights=models.GoogLeNet_Weights.DEFAULT, aux_logits=True, transform_input=False),
     'ResNet18': lambda: models.resnet18(weights=models.ResNet18_Weights.DEFAULT),
     'MobileNetV2': lambda: models.mobilenet_v2(weights=models.MobileNet_V2_Weights.DEFAULT),
-    'EfficientNetB0': lambda: models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT),
+    #'EfficientNetB0': lambda: models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT),
 }
 
 results = {}
@@ -51,6 +56,26 @@ def train_and_evaluate(model_name, epochs=10):
     # 3. Option for EfficientNetB0 and MobileNetV2: the output layer is at index 1 in the 'classifier' list
     elif model_name in ["EfficientNetB0", "MobileNetV2"]:
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, 10)
+
+
+    # used in 1-ch
+    #if model_name == "AlexNet":
+    #    model.features[0] = nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2)
+    #elif model_name == "VGG11":
+    #    model.features[0] = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1)
+    #    model.features = model.features[:-2]
+    #elif model_name == "ResNet18":
+    #    model.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    #    model.maxpool = nn.Identity()   
+    #elif model_name == "GoogLeNet":
+    #    model.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    #    model.maxpool1 = nn.Identity()
+    #elif model_name == "MobileNetV2":
+    #    model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1, bias=False)
+    #elif model_name == "EfficientNetB0":
+    #    model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+
 
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
